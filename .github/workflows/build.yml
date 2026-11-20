@@ -83,4 +83,4 @@ jobs:
 
           First launch walks you through provider token, URL and model (saved for next time). Type /help inside.
           "@
-          gh release create $tag dist/* --title "NullCode $tag" --notes $notes
+          $assets = Get-ChildItem dist -Exclude *.wixpdb | ForEach-Object { $_.FullName }`n          gh release create $tag $assets --title "NullCode $tag" --notes $notes
