@@ -204,6 +204,14 @@ func (a *Agent) SetThink(v bool) { a.cfg.Think = v }
 // SetEffort changes the reasoning_effort sent to backends that support it.
 func (a *Agent) SetEffort(v string) { a.cfg.ReasoningEffort = v }
 
+// SystemPrompt returns the NullCode system prompt for the given config and
+// enabled tool packs — used by nullcodistill to match the agent's prompt.
+func SystemPrompt(cfg Config, features []string) string {
+	a := NewAgent(cfg, nil)
+	a.features = normalizeFeatures(features)
+	return a.systemPrompt()
+}
+
 // SetContextLimit changes the context budget used for history trimming.
 // 0 disables trimming (no limit known).
 func (a *Agent) SetContextLimit(n int) { a.cfg.ContextTokens = n }
