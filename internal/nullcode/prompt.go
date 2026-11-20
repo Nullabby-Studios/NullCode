@@ -28,47 +28,45 @@ programs. When done, reply with a short summary and no tool call.
 `)
 		return b.String()
 	}
-
 	var d []string
 	if a.features["exec"] {
-		d = append(d, "⟦exec⟧ <shell command>")
+		d = append(d, "exec <shell command>")
 	}
 	if a.features["read"] {
-		d = append(d, "⟦read⟧ <path>")
+		d = append(d, "read <path>")
 	}
 	if a.features["list"] {
-		d = append(d, "⟦list⟧ <dir>")
+		d = append(d, "list <dir>")
 	}
 	if a.features["search"] {
-		d = append(d, "⟦search⟧ <pattern> [path]")
+		d = append(d, "search <pattern> [path]")
 	}
 	if a.features["write"] {
-		d = append(d, "⟦write⟧ <path>\n<the complete file content>\n⟦end⟧")
+		d = append(d, "write <path>\n<the complete file content>\nend")
 	}
 	if a.features["patch"] {
-		d = append(d, "⟦patch⟧ <path>\n<<<\nexact old text\n>>>\nreplacement text\n⟦end⟧")
+		d = append(d, "patch <path>\n<<<\nexact old text\n>>>\nreplacement text\nend")
 	}
 	if a.features["todos"] {
-		d = append(d, "⟦todo⟧ add|done|undo|list|clear [text or item number]")
+		d = append(d, "todo add|done|undo|list|clear [text or item number]")
 	}
 	if a.features["skills"] {
-		d = append(d, "⟦skill⟧ <name>")
+		d = append(d, "skill <name>")
 	}
 	if a.features["mcps"] {
-		d = append(d, "⟦mcp⟧ | ⟦mcp⟧ <server> | ⟦mcp⟧ <server> <tool> <json args>")
+		d = append(d, "mcp | mcp <server> | mcp <server> <tool> <json args>")
 	}
 	if a.features["ask"] {
-		d = append(d, "⟦ask⟧ <question for the user>")
+		d = append(d, "ask <question for the user>")
 	}
-	d = append(d, "⟦done⟧")
+	d = append(d, "done")
 
 	fmt.Fprintf(&b, `
 # Acting
-Act only via directives: a line starting with the exact glyphs ⟦ ⟧ (U+27E6,
-U+27E7), never in backticks, quotes, or fences. Close every write/patch with
-⟦end⟧ on its own line right after the last content line. Only the tools below
-exist; no directive = nothing happens. Results arrive between ⟦result⟧ and
-⟦end⟧ lines.
+Act only via directives: a line whose first word is the tool name, e.g.
+exec <command> or write <path>. Close every write/patch with an end line
+right after the last content line. Only the tools below exist; no directive
+means nothing happens. Results arrive between a result line and an end line.
 
 %s
 
@@ -79,17 +77,17 @@ exist; no directive = nothing happens. Results arrive between ⟦result⟧ and
 - Multiple directives per turn run in order. One line of prose, then act.
 - After code changes run build/test/lint. On an error: fix it or stop; never
   repeat a failing action.
-- Done: one-paragraph summary, then ⟦done⟧.
+- Done: one-paragraph summary, then a done line.
 
 # Example
 `, strings.Join(d, "\n"))
 	switch {
 	case a.features["exec"]:
-		b.WriteString("I'll check the project.\n⟦exec⟧ ls\n")
+		b.WriteString("I'll check the project.\nexec ls\n")
 	case a.features["read"]:
-		b.WriteString("I'll check the project.\n⟦read⟧ go.mod\n")
+		b.WriteString("I'll check the project.\nread go.mod\n")
 	default:
-		b.WriteString("I'll check the project.\n⟦list⟧ .\n")
+		b.WriteString("I'll check the project.\nlist .\n")
 	}
 	return b.String()
 }

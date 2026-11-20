@@ -75,7 +75,7 @@ func TestSanitizeText(t *testing.T) {
 
 func TestActionResultEnvelope(t *testing.T) {
 	e := ActionResult{Tool: "exec", Arg: "ls", Status: "exit=0", Body: "a.txt"}.envelope()
-	for _, want := range []string{glyphOpen + "result" + glyphClose, "command: ls", "a.txt", endMarker} {
+	for _, want := range []string{"result", "command: ls", "a.txt", "end"} {
 		if !strings.Contains(e, want) {
 			t.Fatalf("envelope missing %q: %q", want, e)
 		}
@@ -215,13 +215,13 @@ func TestAgentMultiStepHistory(t *testing.T) {
 	if history[2].Role != "assistant" {
 		t.Fatalf("assistant history = %+v", history[2])
 	}
-	if !strings.Contains(history[2].Content, "⟦exec⟧ echo hi") || !strings.Contains(history[2].Content, "Checking.") {
+	if !strings.Contains(history[2].Content, "exec echo hi") || !strings.Contains(history[2].Content, "Checking.") {
 		t.Fatalf("action history = %q", history[2].Content)
 	}
 	if strings.Contains(history[2].Content, "secret plan") || strings.Contains(history[2].Content, "<think>") {
 		t.Fatalf("reasoning leaked into history: %q", history[2].Content)
 	}
-	if history[3].Role != "user" || !strings.Contains(history[3].Content, "⟦result⟧ exec exit=0") {
+	if history[3].Role != "user" || !strings.Contains(history[3].Content, "result exec exit=0") {
 		t.Fatalf("result history = %+v", history[3])
 	}
 }

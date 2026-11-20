@@ -95,7 +95,7 @@ func (r ActionResult) native() string {
 }
 
 func (r ActionResult) envelope() string {
-	head := glyphOpen + "result" + glyphClose + " " + r.Tool
+	head := "result " + r.Tool
 	if r.Status != "" {
 		head += " " + r.Status
 	}
@@ -118,7 +118,7 @@ func (r ActionResult) envelope() string {
 		b.WriteString(r.Body)
 	}
 	b.WriteString("\n")
-	b.WriteString(endMarker)
+	b.WriteString(bareEnd)
 	b.WriteString("\n")
 	return b.String()
 }
@@ -686,7 +686,7 @@ func assistantHistory(prose string, actions []Action) string {
 		if act.Kind == "write" || act.Kind == "patch" || act.Kind == "read" {
 			arg = unquotePath(arg)
 		}
-		lines = append(lines, glyphOpen+act.Kind+glyphClose+" "+arg)
+		lines = append(lines, act.Kind+" "+arg)
 		// Record write/patch bodies with their closing marker so the model
 		// sees complete examples of its own block syntax in context.
 		if act.Kind == "write" || act.Kind == "patch" {
@@ -694,7 +694,7 @@ func assistantHistory(prose string, actions []Action) string {
 			if body != "" {
 				lines = append(lines, body)
 			}
-			lines = append(lines, endMarker)
+			lines = append(lines, bareEnd)
 		}
 	}
 	return strings.Join(lines, "\n")

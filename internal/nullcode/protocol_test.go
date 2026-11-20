@@ -217,7 +217,7 @@ func TestAssistantHistoryKeepsActions(t *testing.T) {
 	})
 	// Writes are recorded with their body and closing marker so the model
 	// sees complete examples of the block syntax in context.
-	want := "look\n⟦exec⟧ ls\n⟦write⟧ a.go\npackage main\n⟦end⟧"
+	want := "look\nexec ls\nwrite a.go\npackage main\nend"
 	if got != want {
 		t.Fatalf("history = %q", got)
 	}
@@ -231,5 +231,53 @@ func TestFilterNativeJSONToolCall(t *testing.T) {
 	}
 	if len(actions) != 1 || actions[0].Kind != "exec" || actions[0].Arg != "go test ./..." {
 		t.Fatalf("actions = %+v", actions)
+	}
+}
+
+func TestBareDirectives(t *testing.T) {
+	_, _, actions, _ := collect(t, "exec ls -la\n")
+	if len(actions) != 1 || actions[0].Kind != "exec" || actions[0].Arg != "ls -la" {
+		t.Fatalf("actions = %+v", actions)
+	}
+	_, _, actions, _ = collect(t, "read go.mod\n")
+	if len(actions) != 1 || actions[0].Kind != "read" {
+		t.Fatalf("read = %+v", actions)
+	}
+	_, _, actions, _ = collect(t, "done\n")
+	if len(actions) != 1 || actions[0].Kind != "done" {
+		t.Fatalf("done = %+v", actions)
+	}
+}
+
+func TestBareDirectivesRejectProse(t *testing.T) {
+	// Prose that merely starts with a tool word must stay prose.
+	for _, src := range []string{
+		"done for now\n",
+		"write tests for the parser next\n",
+		"write a summary\n",
+		"read the docs first\n",
+	} {
+		_, _, actions, _ := collect(t, src)
+		if len(actions) != 0 {
+			t.Fatalf("%q parsed as actions: %+v", src, actions)
+		}
+	}
+}
+
+func TestBareWriteBlock(t *testing.T) {
+	_, _, actions, _ := collect(t, "write main.go\npackage main\nend\n")
+	if len(actions) != 1 || actions[0].Kind != "write" || actions[0].Arg != "main.go" || actions[0].Body != "package main\n" {
+		t.Fatalf("actions = %+v", actions)
+	}
+}
+
+func TestAsciiFencedDirectives(t *testing.T) {
+	_, _, actions, _ := collect(t, "[[exec]] ls\n")
+	if len(actions) != 1 || actions[0].Kind != "exec" || actions[0].Arg != "ls" {
+		t.Fatalf("actions = %+v", actions)
+	}
+	_, _, actions, _ = collect(t, "[[write]] a.txt\nhello\n[[end]]\n")
+	if len(actions) != 1 || actions[0].Body != "hello\n" {
+		t.Fatalf("ascii write = %+v", actions)
 	}
 }

@@ -7,22 +7,34 @@ import (
 	"strings"
 )
 
-// NullCode wire syntax. A directive must be the first non-space token on a
-// line and is fenced with U+27E6/U+27E7. User text is never parsed: only
+// NullCode wire syntax. A directive is a line whose first word is the tool
+// name — `exec <command>` — optionally fenced with [[ ]] or U+27E6/U+27E7
+// for providers that preserve them. Some gateways mangle the glyphs to '?',
+// so the bare form is the primary syntax. User text is never parsed: only
 // assistant answer text passes through Filter.
 const (
 	glyphOpen  = "\u27e6"
 	glyphClose = "\u27e7"
 	endMarker  = glyphOpen + "end" + glyphClose
+	asciiOpen  = "[["
+	asciiClose = "]]"
+	asciiEnd   = asciiOpen + "end" + asciiClose
+	bareEnd    = "end"
 )
 
-// endMarkerAt returns the index and length of the end marker in s, or -1.
+// endMarkerAt returns the index and length of the first fenced end marker
+// (glyph or ASCII form) in s, or -1. A bare `end` line is handled separately.
 func endMarkerAt(s string) (idx, n int) {
 	g := strings.Index(s, endMarker)
-	if g < 0 {
+	a := strings.Index(s, asciiEnd)
+	switch {
+	case g >= 0 && (a < 0 || g <= a):
+		return g, len(endMarker)
+	case a >= 0:
+		return a, len(asciiEnd)
+	default:
 		return -1, 0
 	}
-	return g, len(endMarker)
 }
 
 // Action is one decoded NullCode directive.
@@ -153,6 +165,17 @@ func (f *Filter) process(line string, h filterHooks) {
 		return
 	}
 	if f.inBody {
+		if strings.TrimSpace(line) == bareEnd {
+			act := Action{Kind: f.bodyKind, Arg: f.bodyArg, Body: f.body.String(), Line: f.bodyLine}
+			f.inBody = false
+			f.body.Reset()
+			f.bodyN = 0
+			f.actions = append(f.actions, act)
+			if h.action != nil {
+				h.action(act)
+			}
+			return
+		}
 		if idx, n := endMarkerAt(line); idx >= 0 {
 			before := strings.TrimRight(line[:idx], " \t\r")
 			after := line[idx+n:]
@@ -432,11 +455,23 @@ func (f *Filter) Notes() []string { return f.notes }
 
 func parseDirective(line string) (kind, arg string, ok bool) {
 	t := strings.TrimLeft(line, " \t")
-	if !strings.HasPrefix(t, glyphOpen) {
+	if k, a, ok := parseFencedDirective(t, glyphOpen, glyphClose); ok {
+		return k, a, true
+	}
+	if k, a, ok := parseFencedDirective(t, asciiOpen, asciiClose); ok {
+		return k, a, true
+	}
+	return parseBareDirective(t)
+}
+
+// parseFencedDirective decodes `⟦tool⟧ args` / `[[tool]] args` forms. Any
+// non-empty kind is accepted so unknown tools still produce feedback.
+func parseFencedDirective(t, open, close string) (kind, arg string, ok bool) {
+	if !strings.HasPrefix(t, open) {
 		return "", "", false
 	}
-	rest := t[len(glyphOpen):]
-	end := strings.Index(rest, glyphClose)
+	rest := t[len(open):]
+	end := strings.Index(rest, close)
 	if end < 0 {
 		return "", "", false
 	}
@@ -444,8 +479,52 @@ func parseDirective(line string) (kind, arg string, ok bool) {
 	if kind == "" {
 		return "", "", false
 	}
-	arg = strings.TrimSpace(rest[end+len(glyphClose):])
+	arg = strings.TrimSpace(rest[end+len(close):])
 	return kind, arg, true
+}
+
+// parseBareDirective decodes the unfenced form: the first word of the line
+// is the tool name. Prose that merely starts with a tool word is rejected:
+// `done` must be alone, and write/patch need a path-like argument so lines
+// like "write tests for the parser" stay prose.
+func parseBareDirective(t string) (kind, arg string, ok bool) {
+	i := strings.IndexAny(t, " \t")
+	name, arg := t, ""
+	if i >= 0 {
+		name, arg = t[:i], strings.TrimSpace(t[i+1:])
+	}
+	kind = strings.ToLower(name)
+	if !isKnownTool(kind) || kind == "end" {
+		return "", "", false
+	}
+	switch {
+	case kind == "done":
+		if arg != "" {
+			return "", "", false
+		}
+	case kind == "write" || kind == "patch" || kind == "read" || kind == "search":
+		if !pathLike(arg) {
+			return "", "", false
+		}
+	case arg == "":
+		return "", "", false
+	}
+	return kind, arg, true
+}
+
+// pathLike reports whether the first word of arg looks like a file path.
+func pathLike(arg string) bool {
+	first := arg
+	if i := strings.IndexAny(first, " \t"); i >= 0 {
+		first = first[:i]
+	}
+	if first == "" {
+		return false
+	}
+	if first[0] == '"' || first[0] == '\'' {
+		return true
+	}
+	return strings.ContainsAny(first, "./\\")
 }
 
 func unquotePath(s string) string {
