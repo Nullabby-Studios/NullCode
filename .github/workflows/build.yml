@@ -1,0 +1,86 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build Windows binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          go build -trimpath -ldflags "-s -w" -o dist\nullcode.exe ./cmd/nullcode
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build MSI installer
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
+          $ver = if ($tag -match '^\d') { $tag } else { '0.1.0' }
+          & "$env:USERPROFILE\.dotnet\tools\wix.exe" build -arch x64 -d "dist=$PWD\dist" -d "version=$ver" -o "dist\NullCode-$ver-setup.msi" installer\NullCode.wxs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build setup.exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force cmd\setup\payload | Out-Null
+          Copy-Item dist\nullcode.exe cmd\setup\payload\nullcode.exe -Force
+          go build -trimpath -ldflags "-s -w" -o dist\setup.exe ./cmd/setup
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build linux/darwin binaries
+        shell: pwsh
+        run: |
+          $env:GOOS = "linux"; $env:GOARCH = "amd64"
+          go build -trimpath -ldflags "-s -w" -o dist\nullcode-linux-amd64 ./cmd/nullcode
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $env:GOOS = "darwin"; $env:GOARCH = "arm64"
+          go build -trimpath -ldflags "-s -w" -o dist\nullcode-darwin-arm64 ./cmd/nullcode
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $env:GOOS = ""; $env:GOARCH = ""
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nullcode-dist
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $notes = @"
+          NullCode $tag - a minimal terminal coding agent for the Nullabby model family.
+
+          ## Install (Windows)
+          - **MSI**: download ``NullCode-*-setup.msi`` and run it - installs to %LOCALAPPDATA%\Programs\NullCode and adds it to your user PATH (open a new terminal afterwards).
+          - **Portable**: download ``nullcode.exe`` and run it directly.
+
+          ## Other platforms
+          - ``nullcode-linux-amd64``, ``nullcode-darwin-arm64`` - chmod +x and run.
+
+          First launch walks you through provider token, URL and model (saved for next time). Type /help inside.
+          "@
+          gh release create $tag dist/* --title "NullCode $tag" --notes $notes

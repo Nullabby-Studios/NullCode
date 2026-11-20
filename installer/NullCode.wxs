@@ -1,0 +1,29 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="NullCode"
+      Manufacturer="Nullabby Studios"
+      Version="$(version)"
+      UpgradeCode="7B1A4E62-9C5D-4F8E-B3A1-2D6E4C8F9A05"
+      Scope="perUser"
+      Compressed="true">
+    <SummaryInformation Description="NullCode terminal coding agent" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="NullCode">
+          <Component Id="NullCodeExe" Guid="3D9B7C41-6A2E-4D5F-9C08-1E4A7B2F5D63">
+            <File Id="NullCodeExeFile" Name="nullcode.exe" Source="$(dist)\nullcode.exe" KeyPath="yes" />
+            <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="no" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Level="1">
+      <ComponentRef Id="NullCodeExe" />
+    </Feature>
+  </Package>
+</Wix>

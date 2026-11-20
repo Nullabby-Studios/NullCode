@@ -1,0 +1,5 @@
+*.exe
+dist/
+cmd/setup/payload/
+build/
+*.log
