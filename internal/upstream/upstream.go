@@ -123,9 +123,10 @@ type ToolFunc struct {
 }
 
 type Usage struct {
-	PromptTokens     int64 `json:"prompt_tokens"`
-	CompletionTokens int64 `json:"completion_tokens"`
-	TotalTokens      int64 `json:"total_tokens"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	FinishReason     string `json:"-"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	TotalTokens      int64  `json:"total_tokens"`
 }
 
 type DeltaFn func(kind, text string) // kind: "content" | "reasoning"
@@ -316,6 +317,7 @@ func (u *Upstream) Stream(ctx context.Context, o Options, fn DeltaFn) (Usage, []
 	}
 	tcalls := map[int]*tcAcc{}
 	var tcOrder []int
+	finish := ""
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if !strings.HasPrefix(line, "data:") {
@@ -341,6 +343,7 @@ func (u *Upstream) Stream(ctx context.Context, o Options, fn DeltaFn) (Usage, []
 						} `json:"function"`
 					} `json:"tool_calls"`
 				} `json:"delta"`
+				FinishReason string `json:"finish_reason"`
 			} `json:"choices"`
 			Usage *Usage `json:"usage"`
 		}
@@ -349,6 +352,11 @@ func (u *Upstream) Stream(ctx context.Context, o Options, fn DeltaFn) (Usage, []
 		}
 		if chunk.Usage != nil && chunk.Usage.TotalTokens > 0 {
 			usage = *chunk.Usage
+		}
+		for _, ch := range chunk.Choices {
+			if ch.FinishReason != "" {
+				finish = ch.FinishReason
+			}
 		}
 		for _, ch := range chunk.Choices {
 			// Some gateways mirror the same thinking text into both
@@ -411,6 +419,7 @@ func (u *Upstream) Stream(ctx context.Context, o Options, fn DeltaFn) (Usage, []
 	}
 	usage.CompletionTokens += int64(len(reasonAcc.String()) / 4)
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	usage.FinishReason = finish
 	return usage, calls, nil
 }
 
