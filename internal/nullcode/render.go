@@ -502,6 +502,22 @@ func (a *App) blockLines(b *Block, w int) []string {
 	if width < 4 {
 		width = 4
 	}
+	// Assistant output is markdown: headings, fences, lists, tables and
+	// inline emphasis are parsed into styled lines instead of being shown
+	// raw. Tool output, results, errors and diffs stay verbatim.
+	if b.kind == bAssistant {
+		body := fgbg(bodyCol, bg)
+		for _, ln := range mdLines(text, width, bodyCol, bg) {
+			out = append(out, band(w, bgc(bg), func(l *lw) {
+				l.put(body, "  ")
+				for _, s := range ln {
+					l.put(s.st, s.text)
+				}
+			}))
+		}
+		b.setCache(out, w, a.expanded)
+		return out
+	}
 	var lines []string
 	if b.kind == bTool || b.kind == bResult || b.kind == bError || b.kind == bDiff {
 		lines = hardWrap(text, width)

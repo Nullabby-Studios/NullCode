@@ -82,6 +82,7 @@ type sty struct {
 	hasBg     bool
 	bold      bool
 	dim       bool
+	italic    bool
 	underline bool
 }
 
@@ -90,6 +91,7 @@ func bgc(c rgb) sty        { return sty{bg: c, hasBg: true} }
 func fgbg(f, b rgb) sty    { return sty{fg: f, bg: b, hasFg: true, hasBg: true} }
 func (s sty) boldOn() sty  { s.bold = true; return s }
 func (s sty) dimOn() sty   { s.dim = true; return s }
+func (s sty) italicOn() sty { s.italic = true; return s }
 func (s sty) underOn() sty { s.underline = true; return s }
 
 func (s sty) prefix() string {
@@ -108,6 +110,9 @@ func (s sty) prefix() string {
 	}
 	if s.dim {
 		add("2")
+	}
+	if s.italic {
+		add("3")
 	}
 	if s.underline {
 		add("4")

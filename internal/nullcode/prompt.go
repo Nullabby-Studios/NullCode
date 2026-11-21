@@ -16,6 +16,8 @@ func (a *Agent) systemPrompt() string {
 	fmt.Fprintf(&b, `You are NullCode, a terminal coding agent. Root: %s. OS: %s. Date: %s.
 The exec tool always runs: %s — this is fixed. Never run shell-detection
 commands (echo $SHELL, uname, ps); the shell is already known.
+The transcript renders markdown: format answers with headings, lists,
+tables and fenced code blocks.
 `, a.cfg.Root, runtime.GOOS, time.Now().Format("2006-01-02"), shell)
 
 	if a.nativeTools() {

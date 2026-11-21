@@ -49,6 +49,19 @@ func TestFilterExecAndProse(t *testing.T) {
 	}
 }
 
+func TestFilterFenceIsProse(t *testing.T) {
+	// Example commands inside a markdown fence must not run, while real
+	// directives outside the fence still do.
+	src := "Here is an example:\n```sh\nexec rm -rf /\nread /etc/passwd\n```\nNow for real.\nexec echo safe\n"
+	_, prose, actions, _ := collect(t, src)
+	if strings.Contains(prose, "rm -rf") == false {
+		t.Fatalf("fence content lost: %q", prose)
+	}
+	if len(actions) != 1 || actions[0].Kind != "exec" || actions[0].Arg != "echo safe" {
+		t.Fatalf("fence executed or real directive lost: %+v", actions)
+	}
+}
+
 func TestFilterWriteBodyIsHidden(t *testing.T) {
 	src := "Writing main.go.\n\u27e6write\u27e7 main.go\npackage main\n\nfunc main() {}\n\u27e6end\u27e7\nDone.\n"
 	_, prose, actions, _ := collect(t, src)

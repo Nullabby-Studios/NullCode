@@ -74,6 +74,7 @@ type Filter struct {
 	bodyLine int
 	body     strings.Builder
 	bodyN    int
+	mdFence  bool
 
 	native  bool
 	nativeL []string
@@ -206,6 +207,22 @@ func (f *Filter) process(line string, h filterHooks) {
 			h.body(Action{Kind: f.bodyKind, Arg: f.bodyArg, Line: f.bodyLine}, f.bodyN)
 		}
 		return
+	}
+
+	// Markdown code fences are prose: a model showing example commands in
+	// a ``` fence must not trigger bare-form directives.
+	if !f.inBody {
+		if strings.HasPrefix(strings.TrimLeft(line, " \t"), "```") {
+			f.mdFence = !f.mdFence
+		}
+		if f.mdFence {
+			f.prose.WriteString(line)
+			f.prose.WriteByte('\n')
+			if h.prose != nil {
+				h.prose(line + "\n")
+			}
+			return
+		}
 	}
 
 	kind, arg, ok := parseDirective(line)
