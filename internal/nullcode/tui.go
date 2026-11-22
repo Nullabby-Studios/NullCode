@@ -327,7 +327,13 @@ func (a *App) post(e Event) {
 func (a *App) startAgent() {
 	a.agent = NewAgent(a.cfg, a.post)
 	a.syncCtxLimit()
-	go a.probe(a.model)
+	// Only probe a backend the user actually configured (a non-default saved
+	// URL or a flag/env override). The shipped default nullaby.org is a
+	// placeholder that most users never reach, and auto-probing it just
+	// spams a "backend unreachable" notice on first launch.
+	if a.cfg.BaseURL != "" && a.cfg.BaseURL != defaultBaseURL {
+		go a.probe(a.model)
+	}
 }
 
 func (a *App) beginConnect() {
@@ -448,7 +454,7 @@ func (a *App) fetchModels() {
 		models, _, err := upstream.New(base, key).Models(ctx)
 		e := Event{Kind: "connect_models", Models: models}
 		if err != nil {
-			e.Text = err.Error()
+			e.Text = cleanNetErr(err)
 		}
 		a.post(e)
 	}()
@@ -515,7 +521,7 @@ func (a *App) probe(model string) {
 	defer cancel()
 	models, hint, err := a.agent.Probe(ctx)
 	if err != nil {
-		a.post(Event{Kind: "notice", Text: "backend unreachable at " + a.cfg.BaseURL + ": " + err.Error()})
+		a.post(Event{Kind: "notice", Text: "backend unreachable at " + a.cfg.BaseURL + ": " + cleanNetErr(err)})
 		return
 	}
 	a.post(Event{Kind: "models", Provider: a.cfg.BaseURL, CtxHint: hint, Models: models})
@@ -1314,6 +1320,9 @@ func (a *App) beginToolsPicker() {
 		},
 		apply: func(v string) {
 			a.cfg.ToolMode = v
+			if a.agent != nil {
+				a.agent.SetToolMode(v)
+			}
 			msg := "tool calling: " + v
 			if err := a.saveConfig(); err != nil {
 				msg += " (not saved: " + err.Error() + ")"

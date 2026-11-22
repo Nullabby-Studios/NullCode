@@ -1,6 +1,7 @@
 package nullcode
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 	"testing"
@@ -77,6 +78,33 @@ func TestFrameInputScrolls(t *testing.T) {
 		if strWidth(clean) != 40 {
 			t.Fatalf("line %d width = %d, want 40", i, strWidth(clean))
 		}
+	}
+}
+
+func TestCleanNetErr(t *testing.T) {
+	cases := []struct{ in, want string }{
+		// Resolver clause is dropped; the cause is kept.
+		{`dial tcp: lookup nullaby.org on 127.0.0.53:53: no such host`,
+			`dial tcp: lookup nullaby.org: no such host`},
+		{`dial tcp: lookup x.com on 1.1.1.1:53: i/o timeout`,
+			`dial tcp: lookup x.com: i/o timeout`},
+		// A real backend port (not DNS :53) is preserved.
+		{`dial tcp [::1]:8081: connect: connection refused`,
+			`dial tcp [::1]:8081: connect: connection refused`},
+		// A non-DNS resolver port is preserved (only :53 is an artifact).
+		{`dial tcp: lookup x.com on 10.0.0.53:5353: no such host`,
+			`dial tcp: lookup x.com on 10.0.0.53:5353: no such host`},
+		// Non-network text is untouched.
+		{`models: 401 Unauthorized`, `models: 401 Unauthorized`},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := cleanNetErr(errors.New(c.in)); got != c.want {
+			t.Fatalf("cleanNetErr(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	if got := cleanNetErr(nil); got != "" {
+		t.Fatalf("cleanNetErr(nil) = %q, want empty", got)
 	}
 }
 

@@ -93,7 +93,7 @@ func (a *Agent) list(arg string) ActionResult {
 	if b.Len() == 0 {
 		return ActionResult{Tool: "list", Arg: arg, Status: "ok", Body: "(empty directory)"}
 	}
-	return ActionResult{Tool: "list", Arg: arg, Status: "ok", Body: strings.TrimRight(b.String(), "\n"), Emitted: true}
+	return ActionResult{Tool: "list", Arg: arg, Status: "ok", Body: strings.TrimRight(b.String(), "\n")}
 }
 
 var searchSkipDirs = map[string]bool{".git": true, "node_modules": true, "vendor": true, "__pycache__": true}
@@ -188,7 +188,7 @@ func (a *Agent) search(arg string) ActionResult {
 	if hits > matches {
 		body += fmt.Sprintf("\n… (%d total matches, showing %d)", hits, matches)
 	}
-	return ActionResult{Tool: "search", Arg: arg, Status: "ok", Body: body, Emitted: true}
+	return ActionResult{Tool: "search", Arg: arg, Status: "ok", Body: body}
 }
 
 func (a *Agent) todoPath() string {
@@ -240,9 +240,9 @@ func (a *Agent) todo(arg string) ActionResult {
 		items = keep
 	case "list":
 		if len(items) == 0 {
-			return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: "(no todos)", Emitted: true}
+			return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: "(no todos)"}
 		}
-		return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: strings.Join(items, "\n"), Emitted: true}
+		return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: strings.Join(items, "\n")}
 	default:
 		return ActionResult{Tool: "todo", Arg: arg, Status: "error", Body: "usage: ⟦todo⟧ add|done|undo|list|clear"}
 	}
@@ -253,7 +253,7 @@ func (a *Agent) todo(arg string) ActionResult {
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return ActionResult{Tool: "todo", Arg: arg, Status: "error", Body: err.Error()}
 	}
-	return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: fmt.Sprintf("TODO.md updated (%d items): %s", len(items), strings.Join(items, " | ")), Emitted: true}
+	return ActionResult{Tool: "todo", Arg: arg, Status: "ok", Body: fmt.Sprintf("TODO.md updated (%d items): %s", len(items), strings.Join(items, " | "))}
 }
 
 func skillDirs(a *Agent) []string {
@@ -284,7 +284,7 @@ func (a *Agent) skill(arg string) ActionResult {
 			return ActionResult{Tool: "skill", Status: "error", Body: "no skills installed; add markdown files to .nullcode/skills/ or the nullcode config skills dir"}
 		}
 		sort.Strings(found)
-		return ActionResult{Tool: "skill", Status: "ok", Body: "available skills: " + strings.Join(found, ", "), Emitted: true}
+		return ActionResult{Tool: "skill", Status: "ok", Body: "available skills: " + strings.Join(found, ", ")}
 	}
 	for _, dir := range dirs {
 		data, err := os.ReadFile(filepath.Join(dir, name+".md"))
@@ -292,7 +292,7 @@ func (a *Agent) skill(arg string) ActionResult {
 			continue
 		}
 		return ActionResult{Tool: "skill", Arg: name, Status: "ok",
-			Body: "skill " + name + " loaded; follow these instructions:\n\n" + string(data), Emitted: true}
+			Body: "skill " + name + " loaded; follow these instructions:\n\n" + string(data)}
 	}
 	var avail []string
 	for _, dir := range dirs {

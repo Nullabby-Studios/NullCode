@@ -219,6 +219,10 @@ func (a *Agent) SetContextLimit(n int) { a.cfg.ContextTokens = n }
 // SetAutoApprove toggles approval prompts.
 func (a *Agent) SetAutoApprove(v bool) { a.auto.Store(v) }
 
+// SetToolMode changes how the agent calls tools: "auto", "protocol", or
+// "native".
+func (a *Agent) SetToolMode(m string) { a.cfg.ToolMode = m }
+
 // SetFeatures replaces the enabled tool packs.
 func (a *Agent) SetFeatures(list []string) { a.features = normalizeFeatures(list) }
 
@@ -701,7 +705,7 @@ func assistantHistory(prose string, actions []Action) string {
 }
 
 func (a *Agent) approve(ctx context.Context, kind, detail string) bool {
-	if a.cfg.AutoApprove {
+	if a.auto.Load() {
 		return true
 	}
 	ap := &Approval{Kind: kind, Detail: detail, Resp: make(chan bool, 1)}
@@ -722,7 +726,7 @@ func (a *Agent) approve(ctx context.Context, kind, detail string) bool {
 
 // askUser shows a free-text question in the TUI and waits for the answer.
 func (a *Agent) askUser(ctx context.Context, question string) string {
-	if a.cfg.AutoApprove {
+	if a.auto.Load() {
 		return ""
 	}
 	ap := &AskPrompt{Question: question, Resp: make(chan string, 1)}

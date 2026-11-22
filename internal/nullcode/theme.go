@@ -4,6 +4,7 @@ package nullcode
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -72,6 +73,30 @@ func themeName() string {
 		return "dark"
 	}
 	return "light"
+}
+
+// reResolverPort strips the " on <resolver-ip>:53" clause that Go appends to
+// a failed DNS lookup. Go's dial error is shaped like
+// "dial tcp: lookup <host> on <ip>:53: <cause>", where <ip> is the local
+// resolver the query was sent to (the systemd-resolved loopback stub,
+// 127.0.0.53, on most Linux boxes). That address is an artifact of the
+// resolver, not of the backend being contacted, so surfacing it in the UI
+// reads as "the program resolved <host> to 127.0.0.53". Dropping the clause
+// leaves the actionable part: "lookup <host>: no such host". Only port 53
+// (DNS) is stripped; real backend ports such as [::1]:8081 are preserved.
+var reResolverPort = regexp.MustCompile(` on [0-9][0-9a-fA-F:.]*:53:`)
+
+// cleanNetErr removes the local-resolver address from a network error so the
+// UI shows why the lookup failed without naming the resolver's own IP.
+func cleanNetErr(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := reResolverPort.ReplaceAllString(err.Error(), ":")
+	// A stripped clause can leave a doubled "host:" + "no such host" as
+	// "host:: ..." only when the cause itself started with a colon; normalize.
+	s = strings.ReplaceAll(s, ":: ", ": ")
+	return s
 }
 
 func init() { setTheme(true) }
