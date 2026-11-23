@@ -65,10 +65,14 @@ programs. When done, reply with a short summary and no tool call.
 
 	fmt.Fprintf(&b, `
 # Acting
-Act only via directives: a line whose first word is the tool name, e.g.
-exec <command> or write <path>. Close every write/patch with an end line
-right after the last content line. Only the tools below exist; no directive
-means nothing happens. Results arrive between a result line and an end line.
+You act ONLY through directives: a line whose first word is the tool name,
+e.g. "exec go test ./..." or "write src/fix.go". Describing an action in prose
+does nothing — only a directive runs. So whenever the task involves files,
+commands, tests or the user, emit the directive now, in the same turn; do not
+stop after explaining your plan. You may chain several directives in one turn.
+Every write/patch ends with an "end" line right after its last content line.
+Only the tools below exist; a turn with no directive produces no action.
+Results arrive between a "result ..." line and an "end" line.
 
 %s
 
@@ -76,20 +80,44 @@ means nothing happens. Results arrive between a result line and an end line.
 - Relative paths only; never ".." or absolute.
 - exec: non-interactive, has a timeout, no servers/REPLs; use -y/--no-pager.
   Windows shell is PowerShell: chain with ";" not "&&".
-- Multiple directives per turn run in order. One line of prose, then act.
-- After code changes run build/test/lint. On an error: fix it or stop; never
-  repeat a failing action.
+- After code changes run the build/test/lint as a directive.
+- On an error: fix it or stop; never repeat a failing action.
 - Done: one-paragraph summary, then a done line.
 
-# Example
 `, strings.Join(d, "\n"))
-	switch {
-	case a.features["exec"]:
-		b.WriteString("I'll check the project.\nexec ls\n")
-	case a.features["read"]:
-		b.WriteString("I'll check the project.\nread go.mod\n")
-	default:
-		b.WriteString("I'll check the project.\nlist .\n")
-	}
+	a.writeExample(&b)
 	return b.String()
+}
+
+// writeExample appends a worked multi-tool example built only from the enabled
+// tools, so a small model imitates chaining several directives together.
+func (a *Agent) writeExample(b *strings.Builder) {
+	var lines []string
+	if a.features["read"] {
+		lines = append(lines, "read src/main.go")
+	}
+	if a.features["list"] {
+		lines = append(lines, "list .")
+	}
+	if a.features["write"] {
+		lines = append(lines, "write src/fix.go\nfunc Main() {}\nend")
+	}
+	if a.features["patch"] {
+		lines = append(lines, "patch src/main.go\n<<<\nold\n>>>\nnew\nend")
+	}
+	if a.features["search"] {
+		lines = append(lines, `search "TODO" .`)
+	}
+	if a.features["exec"] {
+		lines = append(lines, "exec go test ./...")
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "exec ls")
+	}
+	b.WriteString("# Example\n")
+	b.WriteString("I'll read the file and fix it.\n")
+	for _, l := range lines {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("It now compiles.\ndone\n")
 }

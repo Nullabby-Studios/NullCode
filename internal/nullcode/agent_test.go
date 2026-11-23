@@ -82,6 +82,35 @@ func TestActionResultEnvelope(t *testing.T) {
 	}
 }
 
+func TestProtocolPromptTeachesToolChaining(t *testing.T) {
+	a := NewAgent(Config{
+		Root:    t.TempDir(),
+		Model:   "tiny-model", // not a frontier family -> protocol mode
+		Features: []string{"exec", "read", "write", "patch", "list", "search"},
+	}, nil)
+	p := a.systemPrompt()
+	// The prompt must push the model to act, not just explain.
+	if !strings.Contains(p, "emit the directive now") {
+		t.Fatalf("prompt missing act-now guidance:\n%s", p)
+	}
+	// A multi-tool example, not a single-tool one.
+	var saw, exec, write, read bool
+	for _, line := range strings.Split(p, "\n") {
+		switch {
+		case strings.HasPrefix(line, "exec "):
+			exec = true
+		case strings.HasPrefix(line, "write "):
+			write = true
+		case strings.HasPrefix(line, "read "):
+			read = true
+		}
+	}
+	saw = exec && write && read
+	if !saw {
+		t.Fatalf("example should chain exec/write/read; exec=%v write=%v read=%v\n%s", exec, write, read, p)
+	}
+}
+
 func TestAgentWritesFile(t *testing.T) {
 	dir := t.TempDir()
 	var requests int
